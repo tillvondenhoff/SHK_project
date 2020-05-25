@@ -40,7 +40,8 @@ def cluster_2D(A,buffer_size):
         cloud_center:         center of each cloud (bitmap)
         cloud_pixels:          array with corresponding number of pixels for each cloud
     """
-    cloud_center = []
+    cloud_center_x = []
+    cloud_center_y = []
     cloud_pixels = []
     
     #Uses a default periodic boundary domain
@@ -63,7 +64,6 @@ def cluster_2D(A,buffer_size):
     for c in range(1,n_clouds+1):
         idx_x,idx_y = np.unravel_index(lin_idx_split[c],labeled_clouds.shape)
 
-
         #idx_x,idx_y = np.where(labeled_clouds==c)
         idx_x_m = np.mean(idx_x)
         idx_y_m = np.mean(idx_y)
@@ -75,7 +75,8 @@ def cluster_2D(A,buffer_size):
             bla = 1
 
         else:
-            cloud_center.append([int(idx_x_m)-n_buffer,int(idx_y_m)-n_buffer])
+            cloud_center_x.append(int(idx_x_m)-n_buffer)
+            cloud_center_y.append(int(idx_y_m)-n_buffer)
             if (len(idx_x) == len(idx_y)):
                 cloud_pixels.append(len(idx_x))
             else:
@@ -139,7 +140,7 @@ def cluster_2D(A,buffer_size):
 
     labeled_clouds_clean = sort_and_tidy_labels_2D(labeled_clouds_orig)
 
-    return labeled_clouds_clean, A_buf, n_buffer, cloud_center, cloud_pixels
+    return labeled_clouds_clean, A_buf, n_buffer, cloud_center_x, cloud_center_y, cloud_pixels
 
 
 def plot_cloud_slope(data,time,timestep,bin_min,bin_max,n_bins):

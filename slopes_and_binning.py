@@ -108,7 +108,7 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
     try:
         x_min_shade
     except:
-        x_min_shade = x_max_shade
+        x_min_shade = x_max
     m1, b1 = np.polyfit(np.log(x_nozeros), np.log(y_nozeros), 1)
     f1 = np.exp(m1 * np.log(x_bins_lin)) * np.exp(b1)
     x_max_shade = x_bins_lin[-1]
@@ -117,7 +117,6 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
     bins_log_mm, ind, CSD = log_binner_minmax(dist, bin_min, bin_max, bin_n)
     #CSD, bins_log_mm = np.histogram(dist, bins=np.logspace(np.log10(x_min),np.log10(x_max), bin_n+1),range=(x_min, x_max))
     x_bins_log_mm = bins_log_mm[:-1] / 2. + bins_log_mm[1:] / 2.
-    
     x_mm_nozeros = []
     valid_bins = []
     valid_CSD = []
@@ -151,7 +150,8 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
         x_min_shade2 = x_bins_log_mm[global_i + 1]
     except:
         x_min_shade2 = x_bins_log_mm[-1]
-    x_max_shade2 = x_max
+    x_max_shade2 = x_bins_log_mm[-1]
+    print('shade1:',x_min_shade1,' - ',x_max_shade1,'\n shade2:',x_min_shade2,' - ',x_max_shade2)
     
     # cumulative distribution by sorting the data (d)
     dist_sort = np.sort(dist)
@@ -162,7 +162,8 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
     alpha = alpha_newman5(dist, np.sqrt(min_pixel)*25.)
     x_min_shade3 = np.min(dist_sort)
     x_max_shade3 = np.sqrt(min_pixel)*25.
-
+    print('shade3:',x_min_shade3,' - ',x_max_shade3)
+    
     # calculate y-intercept of linear equation with alpha-1
     def powerlaw_func(x, alpha, C):
         return C * x ** -alpha
