@@ -175,21 +175,27 @@ def plot_cloud_slope(data,time,timestep,bin_min,bin_max,n_bins):
         bins_log_mm, ind, CSD = log_binner_minmax(cl_size[1:], bin_min, bin_max, n_bins)
         x_bins_log_mm = bins_log_mm[:-1]/2.+bins_log_mm[1:]/2.
 
-        j = 0
-        global_j = 0
-        global_i = 0
-        for i in range(CSD.size):
-            j += 1
-            if math.isnan(CSD[i]):
-                  j = 0
-            elif j > global_j:
-                global_j = j
-                global_i = i     
-        if (len(x_bins_log_mm[global_i-global_j+1:global_i+1])==0):
-            print('there are no clouds for this timestep')
+        pos_min = 0
+        pos_max = -1
+
+        if np.isnan(np.sum(CSD)):
+            nan_pos = [0]
+            for i in range(CSD.size):
+                if np.isnan(CSD[i]):
+                    nan_pos.append(i)
+            nan_pos.append(CSD.size)
+            nan_pos = np.asarray(nan_pos)
+
+            pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
+            pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+
+            print('nan_pos:',nan_pos)
+
+            m2, b2 = np.polyfit(np.log(x_bins_log_mm[pos_min:pos_max]),np.log(CSD[pos_min:pos_max]), 1)
+            f2 = 10 ** (m2 * np.log10(x_bins_log_mm)) * np.exp(b2)
         else:
-            m2,b2 = np.polyfit(np.log(x_bins_log_mm[global_i-global_j+1:global_i+1]),np.log(CSD[global_i-global_j+1:global_i+1]), 1)
-            f2 = 10**(m2*np.log10(x_bins_log_mm))*np.exp(b2)
+            m2, b2 = np.polyfit(np.log(x_bins_log_mm),np.log(CSD), 1)
+            f2 = 10 ** (m2 * np.log10(x_bins_log_mm)) * np.exp(b2)
 
         plt.plot(x_bins_log_mm,CSD,'-o')
         plt.plot(x_bins_log_mm,f2)
@@ -220,23 +226,28 @@ def plot_cloud_slope(data,time,timestep,bin_min,bin_max,n_bins):
                 bins_log_mm, ind, CSD = log_binner_minmax(cl_size[1:],1,300,100)
                 x_bins_log_mm = bins_log_mm[:-1]/2.+bins_log_mm[1:]/2.
 
-                j = 0
-                global_j = 0
-                global_i = 0
-                for i in range(CSD.size):
-                    j += 1
-                    if math.isnan(CSD[i]):
-                          j = 0
-                    elif j > global_j:
-                        global_j = j
-                        global_i = i     
-                if (len(x_bins_log_mm[global_i-global_j+1:global_i+1])==0):
-                    continue
+                pos_min = 0
+                pos_max = -1
+
+                if np.isnan(np.sum(CSD)):
+                    nan_pos = [0]
+                    for i in range(CSD.size):
+                        if np.isnan(CSD[i]):
+                            nan_pos.append(i)
+                    nan_pos.append(CSD.size)
+                    nan_pos = np.asarray(nan_pos)
+
+                    pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
+                    pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+
+                    print('nan_pos:',nan_pos)
+
+                    m2, b2 = np.polyfit(np.log(x_bins_log_mm[pos_min:pos_max]),np.log(CSD[pos_min:pos_max]), 1)
                 else:
-                    m2,b2 = np.polyfit(np.log(x_bins_log_mm[global_i-global_j+1:global_i+1]),np.log(CSD[global_i-global_j+1:global_i+1]), 1)
-                    f2 = 10**(m2*np.log10(x_bins_log_mm))*np.exp(b2)
-                    slope.append(m2)
-                    time_nozeros.append(time_hack[k])
+                    m2, b2 = np.polyfit(np.log(x_bins_log_mm),np.log(CSD), 1)
+                    
+                slope.append(m2)
+                time_nozeros.append(time_hack[k])
             else:
                 k = k+1
         
@@ -274,19 +285,28 @@ def plot_plumes_slope(area,time,bin_min,bin_max,bin_n,prop_plumes,series=True,ti
         bins_log_mm, ind, CSD = log_binner_minmax(plume_time_area_timestep[area],bin_min,bin_max,bin_n)
         x_bins_log_mm = bins_log_mm[:-1]/2.+bins_log_mm[1:]/2.
 
-        j = 0
-        global_j = 0
-        global_i = 0
-        for i in range(CSD.size):
-            j += 1
-            if math.isnan(CSD[i]):
-                j = 0
-            elif j > global_j:
-                global_j = j
-                global_i = i
+        pos_min = 0
+        pos_max = -1
 
-            m2,b2 = np.polyfit(np.log(x_bins_log_mm[global_i-global_j+1:global_i+1]),np.log(CSD[global_i-global_j+1:global_i+1]), 1)
-            f2 = 10**(m2*np.log10(x_bins_log_mm))*np.exp(b2)
+        if np.isnan(np.sum(CSD)):
+            nan_pos = [0]
+            for i in range(CSD.size):
+                if np.isnan(CSD[i]):
+                    nan_pos.append(i)
+            nan_pos.append(CSD.size)
+            nan_pos = np.asarray(nan_pos)
+
+            pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
+            pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+
+            print('nan_pos:',nan_pos)
+
+            m2, b2 = np.polyfit(np.log(x_bins_log_mm[pos_min:pos_max]),np.log(CSD[pos_min:pos_max]), 1)
+            f2 = 10 ** (m2 * np.log10(x_bins_log_mm)) * np.exp(b2)
+        else:
+            m2, b2 = np.polyfit(np.log(x_bins_log_mm),np.log(CSD), 1)
+            f2 = 10 ** (m2 * np.log10(x_bins_log_mm)) * np.exp(b2)
+            
         plt.plot(x_bins_log_mm,CSD,'-o')
         plt.plot(x_bins_log_mm,f2)
         plt.xscale('log')
@@ -302,23 +322,30 @@ def plot_plumes_slope(area,time,bin_min,bin_max,bin_n,prop_plumes,series=True,ti
             bins_log_mm, ind, CSD = log_binner_minmax(plume_time_area_timestep[area],bin_min,bin_max,bin_n)
             x_bins_log_mm = bins_log_mm[:-1]/2.+bins_log_mm[1:]/2.
 
-            j = 0
-            global_j = 0
-            global_i = 0
-            for i in range(CSD.size):
-                j += 1
-                if math.isnan(CSD[i]):
-                        j = 0
-                elif j > global_j:
-                    global_j = j
-                    global_i = i     
-            if (len(x_bins_log_mm[global_i-global_j+1:global_i+1])==0):
-                continue
+            pos_min = 0
+            pos_max = -1
+
+            if np.isnan(np.sum(CSD)):
+                nan_pos = [0]
+                for i in range(CSD.size):
+                    if np.isnan(CSD[i]):
+                        nan_pos.append(i)
+                nan_pos.append(CSD.size)
+                nan_pos = np.asarray(nan_pos)
+
+                pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
+                pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+
+                print('nan_pos:',nan_pos)
+
+                m2, b2 = np.polyfit(np.log(x_bins_log_mm[pos_min:pos_max]),np.log(CSD[pos_min:pos_max]), 1)
+                f2 = 10 ** (m2 * np.log10(x_bins_log_mm)) * np.exp(b2)
             else:
-                m2,b2 = np.polyfit(np.log(x_bins_log_mm[global_i-global_j+1:global_i+1]),np.log(CSD[global_i-global_j+1:global_i+1]), 1)
-                f2 = 10**(m2*np.log10(x_bins_log_mm))*np.exp(b2)
-                slope_plumes.append(m2)
-                time_nozeros_plumes.append(timehack[k]) 
+                m2, b2 = np.polyfit(np.log(x_bins_log_mm),np.log(CSD), 1)
+                
+            slope_plumes.append(m2)
+            time_nozeros_plumes.append(timehack[k])
+                
         plt.plot(time_nozeros_plumes[:-1],slope_plumes[:-1])
     
 
@@ -413,51 +440,27 @@ def plot_cloud_alpha(data, time, bin_n, bin_min, bin_max, ref_min, min_pixel,n_c
         #CSD, bins_log_mm = np.histogram(cloud_area, bins=np.logspace(np.log10(bin_min),np.log10(bin_max), bin_n+1),range=(cloud_area_min, cloud_area_max))
         x_bins_log_mm = bins_log_mm[:-1] / 2. + bins_log_mm[1:] / 2.
         
-        """x_mm_nozeros = []
-        valid_bins = []
-        valid_CSD = []
-        j = 0
-        global_j = 0
-        global_i = 0
-        for i in range(CSD.size):
-            j += 1
-            if np.isnan(CSD[i]):
-                j = 0
-                x_mm_nozeros.append(x_bins_log_mm[i])
-            elif j > global_j:
-                valid_CSD.append(CSD[i])
-                valid_bins.append(x_bins_log_mm[i])
-                global_j = j
-                global_i = i
-            else:
-                valid_CSD.append(CSD[i])
-                valid_bins.append(x_bins_log_mm[i])
-        if (len(x_bins_log_mm[global_i-global_j+1:global_i+1])==0):
-            break
+        pos_min = 0
+        pos_max = -1
+
+        if np.isnan(np.sum(CSD)):
+            nan_pos = [0]
+            for i in range(CSD.size):
+                if np.isnan(CSD[i]):
+                    nan_pos.append(i)
+            nan_pos.append(CSD.size)
+            nan_pos = np.asarray(nan_pos)
+
+            pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
+            pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+
+            print('nan_pos:',nan_pos)
+
+            m2, b2 = np.polyfit(np.log(x_bins_log_mm[pos_min:pos_max]),np.log(CSD[pos_min:pos_max]), 1)
         else:
-            m2, b2 = np.polyfit(np.log(valid_bins),np.log(valid_CSD), 1)"""
-        x_mm_nozeros = []
-        CSD_nozeros = []
-        for i in range(CSD.size):
-            if np.isnan(CSD[i]):
-                CSD_nozeros.append(CSD[i])
-                x_mm_nozeros.append(x_bins_log_mm[i])
-        j = 0
-        global_j = 0
-        global_i = 0
-        for i in range(CSD.size):
-            j += 1
-            if np.isnan(CSD[i]):
-                j = 0
-            elif j > global_j:
-                global_j = j
-                global_i = i
-                
-        if (len(x_bins_log_mm[global_i-global_j+1:global_i+1])==0):
-            break
-        else:
-            m2,b2 = np.polyfit(np.log(x_bins_log_mm[global_i-global_j+1:global_i+1]),np.log(CSD[global_i-global_j+1:global_i+1]), 1)
-            slope_log.append(m2)
+            m2, b2 = np.polyfit(np.log(x_bins_log_mm),np.log(CSD), 1)
+
+        slope_log.append(m2)
 
     # cumulative distribution by sorting the data (d)
         alpha = alpha_newman5(cloud_area, np.sqrt(min_pixel)*25.)
@@ -540,29 +543,28 @@ def plot_plume_alpha(plumes_time_area, bin_n, bin_min, bin_max, min_pixel, n_plu
     # logarithmic binning of the data (c)
         bins_log_mm, ind, CSD = log_binner_minmax(plume_area, bin_min, bin_max, bin_n)
         x_bins_log_mm = bins_log_mm[:-1] / 2. + bins_log_mm[1:] / 2.
-        x_mm_nozeros = []
-        CSD_nozeros = []
-        for i in range(CSD.size):
-            if math.isnan(CSD[i]):
-                CSD_nozeros.append(CSD[i])
-                x_mm_nozeros.append(x_bins_log_mm[i])
-        j = 0
-        global_j = 0
-        global_i = 0
-        for i in range(CSD.size):
-            j += 1
-            if math.isnan(CSD[i]):
-                j = 0
-            elif j > global_j:
-                global_j = j
-                global_i = i
-                
-        if (len(x_bins_log_mm[global_i-global_j+1:global_i+1])==0):
-            continue
+        
+        pos_min = 0
+        pos_max = -1
+
+        if np.isnan(np.sum(CSD)):
+            nan_pos = [0]
+            for i in range(CSD.size):
+                if np.isnan(CSD[i]):
+                    nan_pos.append(i)
+            nan_pos.append(CSD.size)
+            nan_pos = np.asarray(nan_pos)
+
+            pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
+            pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+
+            print('nan_pos:',nan_pos)
+
+            m2, b2 = np.polyfit(np.log(x_bins_log_mm[pos_min:pos_max]),np.log(CSD[pos_min:pos_max]), 1)
         else:
-            m2,b2 = np.polyfit(np.log(x_bins_log_mm[global_i-global_j+1:global_i+1]),np.log(CSD[global_i-global_j+1:global_i+1]), 1)
-            f2 = 10**(m2*np.log10(x_bins_log_mm))*np.exp(b2)
-            slope_log.append(m2)
+            m2, b2 = np.polyfit(np.log(x_bins_log_mm),np.log(CSD), 1)
+            
+        slope_log.append(m2)
 
     # cumulative distribution by sorting the data (d)
         alpha = alpha_newman5(plume_area, plume_area_min)

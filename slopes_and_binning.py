@@ -92,66 +92,66 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
 
     N_samples = len(dist)
     
-
+    print(min(dist))
     # linear power-law distribution of the data (a,b)
-    y, bins_lin = np.histogram(dist, bins=bin_n, density=True, range=(x_min, x_max))
+    y, bins_lin = np.histogram(dist, bins=bin_n, density=True)
     x_bins_lin = bins_lin[:-1] / 2. + bins_lin[1:] / 2.
+
+    x_bins_lin_cut = x_bins_lin[x_bins_lin>np.sqrt(min_pixel)*25.]
+    y_cut = y[x_bins_lin>np.sqrt(min_pixel)*25.]
+    
     x_nozeros = []
     y_nozeros = []
-    for i in range(y.size):
-        if y[i] != 0.:
-            y_nozeros.append(y[i])
-            x_nozeros.append(x_bins_lin[i])
-        elif y[i] == 0.:
-            x_min_shade = x_bins_lin[i]
+    shade0_min = x_bins_lin[-1]
+    for i in range(y_cut.size):
+        if y_cut[i] != 0.:
+            y_nozeros.append(y_cut[i])
+            x_nozeros.append(x_bins_lin_cut[i])
+        elif y_cut[i] == 0.:
+            shade0_min = x_bins_lin_cut[i]
             break
-    try:
-        x_min_shade
-    except:
-        x_min_shade = x_max
+
     m1, b1 = np.polyfit(np.log(x_nozeros), np.log(y_nozeros), 1)
-    f1 = np.exp(m1 * np.log(x_bins_lin)) * np.exp(b1)
-    x_max_shade = x_bins_lin[-1]
+    f1 = np.exp(m1 * np.log(x_bins_lin_cut)) * np.exp(b1)
+    shade0_max = x_bins_lin[-1]
 
     # logarithmic binning of the data (c)
     bins_log_mm, ind, CSD = log_binner_minmax(dist, bin_min, bin_max, bin_n)
     #CSD, bins_log_mm = np.histogram(dist, bins=np.logspace(np.log10(x_min),np.log10(x_max), bin_n+1),range=(x_min, x_max))
     x_bins_log_mm = bins_log_mm[:-1] / 2. + bins_log_mm[1:] / 2.
-    x_mm_nozeros = []
-    valid_bins = []
-    valid_CSD = []
-    j = 0
-    global_j = 0
-    global_i = 0
-    for i in range(CSD.size):
-        j += 1
-        if np.isnan(CSD[i]):
-            j = 0
-            x_mm_nozeros.append(x_bins_log_mm[i])
-        elif j > global_j:
-            valid_CSD.append(CSD[i])
-            valid_bins.append(x_bins_log_mm[i])
-            global_j = j
-            global_i = i
-        else:
-            valid_CSD.append(CSD[i])
-            valid_bins.append(x_bins_log_mm[i])
-
-    m2, b2 = np.polyfit(np.log(valid_bins),np.log(valid_CSD), 1)
-    f2 = 10 ** (m2 * np.log10(x_bins_log_mm)) * np.exp(b2)
-    # where to start and end shadow of values that are not being used for the fit
-    try:
-        x_min_shade1 = x_mm_nozeros[0]
-    except:
-        x_min_shade1 = 0
-    x_max_shade1 = x_bins_log_mm[global_i - global_j + 1]
     
-    try:
-        x_min_shade2 = x_bins_log_mm[global_i + 1]
-    except:
-        x_min_shade2 = x_bins_log_mm[-1]
-    x_max_shade2 = x_bins_log_mm[-1]
-    print('shade1:',x_min_shade1,' - ',x_max_shade1,'\n shade2:',x_min_shade2,' - ',x_max_shade2)
+    pos_min = len(x_bins_log_mm[x_bins_log_mm<np.sqrt(min_pixel)*25.])
+    pos_max = -1
+    
+    CSD_cut = CSD[x_bins_log_mm>np.sqrt(min_pixel)*25.]
+    x_bins_log_mm_cut = x_bins_log_mm[x_bins_log_mm>np.sqrt(min_pixel)*25.]
+    
+    if np.isnan(np.sum(CSD_cut)):
+        nan_pos = [0]
+        for i in range(CSD_cut.size):
+            if np.isnan(CSD_cut[i]):
+                nan_pos.append(i)
+                
+        nan_pos.append(CSD_cut.size)
+        nan_pos = np.asarray(nan_pos)
+        
+        pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
+        pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+        
+        print('nan_pos:',nan_pos)
+        
+        m2, b2 = np.polyfit(np.log(x_bins_log_mm_cut[pos_min:pos_max]),np.log(CSD_cut[pos_min:pos_max]), 1)
+        f2 = 10 ** (m2 * np.log10(x_bins_log_mm_cut)) * np.exp(b2)
+    else:
+        m2, b2 = np.polyfit(np.log(x_bins_log_mm_cut),np.log(CSD_cut), 1)
+        f2 = 10 ** (m2 * np.log10(x_bins_log_mm_cut)) * np.exp(b2)
+    
+    shade1_min = x_bins_log_mm[0]
+    shade1_max = x_bins_log_mm[pos_min]
+    
+    shade2_min = x_bins_log_mm[pos_max]
+    shade2_max = x_bins_log_mm[-1]
+
     
     # cumulative distribution by sorting the data (d)
     dist_sort = np.sort(dist)
@@ -160,9 +160,8 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
     # calculate slope (alpha)
     #print (np.min(dist))
     alpha = alpha_newman5(dist, np.sqrt(min_pixel)*25.)
-    x_min_shade3 = np.min(dist_sort)
-    x_max_shade3 = np.sqrt(min_pixel)*25.
-    print('shade3:',x_min_shade3,' - ',x_max_shade3)
+    shade3_min = np.min(dist_sort)
+    shade3_max = np.sqrt(min_pixel)*25.
     
     # calculate y-intercept of linear equation with alpha-1
     def powerlaw_func(x, alpha, C):
@@ -185,43 +184,46 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
     
     if (show_plt==True):
         fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-
+        
         axes[0, 0].plot(x_bins_lin, y)
-        axes[0, 0].set_xlabel('x')
+        axes[0, 0].set_xlabel('cloud size [m]')
         axes[0, 0].set_ylabel('probability density function')
-        axes[0, 0].set_title(r'Power-law distribution with an exponent of $\alpha$')
-
+        axes[0, 0].set_title('linear histogram')
+        
         axes[0, 1].plot(x_bins_lin, y, 'o')
         axes[0, 1].loglog(x_bins_lin, y)
-        axes[0, 1].plot(x_bins_lin, f1)
-        axes[0, 1].set_xlabel('x')
+        axes[0, 1].plot(x_bins_lin_cut, f1)
+        axes[0, 1].set_xlabel('cloud size [m]')
         axes[0, 1].set_ylabel('samples')
-        axes[0, 1].text(np.max(x_bins_lin), np.max(y), r'$\alpha = %f$' % m1, horizontalalignment='right',
-                        verticalalignment='top')
-        axes[0, 1].set_title('Power-law distribution with log scales')
-        axes[0, 1].axvspan(x_min_shade, x_max_shade, color='lightgray', alpha=0.5, lw=0)
+        axes[0, 1].text(np.max(x_bins_lin), np.max(y), r'$\alpha = %f$' % m1,
+                        horizontalalignment='right', verticalalignment='top')
+        axes[0, 1].set_title('distribution with linear bins')
+        axes[0, 1].set_xlim([min(dist), max(dist)])
+        axes[0, 1].axvspan(shade0_min, shade0_max, color='lightgray', alpha=0.5, lw=0)
 
         axes[1, 0].plot(x_bins_log_mm, CSD, 'o')
         axes[1, 0].loglog(x_bins_log_mm, CSD)
-        axes[1, 0].plot(x_bins_log_mm, f2)
-        axes[1, 0].set_xlabel('x')
+        axes[1, 0].plot(x_bins_log_mm_cut, f2)
+        axes[1, 0].set_xlabel('cloud size [m]')
         axes[1, 0].set_ylabel('samples')
-        axes[1, 0].text(x_min_shade2, CSD[global_i - global_j + 1], r'$\alpha = %f$' % m2,
+        axes[1, 0].text(shade2_min, CSD[pos_min], r'$\alpha = %f$' % m2,
                         horizontalalignment='right', verticalalignment='top')
-        axes[1, 0].set_title('Power-law distribution with log binning')
-        axes[1, 0].axvspan(x_min_shade1, x_max_shade1, color='lightgray', alpha=0.5, lw=0)
-        axes[1, 0].axvspan(x_min_shade2, x_max_shade2, color='lightgray', alpha=0.5, lw=0)
+        axes[1, 0].set_title('distribution with logarithmic bins')
+        axes[1, 0].set_xlim([min(dist), max(dist)])
+        axes[1, 0].axvspan(shade1_min, shade1_max, color='lightgray', alpha=0.5, lw=0)
+        axes[1, 0].axvspan(shade2_min, shade2_max, color='lightgray', alpha=0.5, lw=0)
 
         axes[1, 1].plot(dist_sort, p, 'o')
         axes[1, 1].loglog(dist_sort, p)
         axes[1, 1].plot(dist_sort, f3)
-        axes[1, 1].set_xlabel('normed distribution')
-        axes[1, 1].set_ylabel('samples with values > x')
+        axes[1, 1].set_xlabel('cloud size [m]')
+        axes[1, 1].set_ylabel('samples')
         axes[1, 1].text(np.max(dist_sort), np.max(p), r'$\alpha = %f$' % (-alpha), horizontalalignment='right',
                         verticalalignment='top')
-        axes[1, 1].set_title(r'Cumulative distribution with an exponent of $\alpha-1$')
-        axes[1, 1].axvspan(x_min_shade3, np.asarray(x_max_shade3), color='lightgray', alpha=0.5, lw=0)
-
+        axes[1, 1].set_title('Cumulative distribution function')
+        axes[1, 1].set_xlim([min(dist), max(dist)])
+        axes[1, 1].axvspan(shade3_min, shade3_max, color='lightgray', alpha=0.5, lw=0)
+        
         m3 = -alpha
         return fig, m1, m2, m3
     else:
@@ -272,7 +274,7 @@ def cloud_size_dist(dist, time, bin_n, bin_min, bin_max, ref_min, file, min_pixe
     # returns cloud_area and therefore its 2D size
     cloud_pixel = ndi.labeled_comprehension(cloud_2D_mask,labeled_clouds,labels, np.size, float, 0)
     cloud_area = np.sqrt(cloud_pixel)*25.
-    cloud_area_min = np.sqrt(min_pixel)*25.
+    cloud_area_min = np.min(cloud_area)
     cloud_area_max = np.max(cloud_area)
     #print('number of Clouds:',n_clouds,'\nmin cloud area:',np.min(cloud_area),'\nmax cloud area:',np.max(cloud_area))
 
