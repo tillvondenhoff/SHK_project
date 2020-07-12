@@ -4,8 +4,211 @@ import scipy.ndimage as ndi
 from scipy.integrate import quad
 import matplotlib.pyplot as plt
 from scipy import stats
-#import lmfit
-#from lmfit import Model
+
+
+def get_time_labels(start_time, increment, length):
+    """
+    written by Till Vondenhoff, 20-06-27
+    
+    creates a list of time labels 
+    
+    Parameters:
+        start_time:  float, representing the start of the simulation (6 o'clock => 6.0, 6:30 => 6.5)
+        increment:   float, representing the increment per timestep (30 minutes => 0.5, 15 minutes => 0.25)
+        length:      int, length of the data vektor
+        
+    Returns:
+        time_labels: array of strings containing the time labels (time_labels = ['7:30','8:00','8:30',...])
+    """
+    
+    time_labels = []
+    time_float = np.linspace(start_time,start_time+(length-1)*increment,length)
+    for t in time_float:
+        if (t%1 == 0):
+            time_labels.append('%i:00' %(t))
+        else:
+            time_labels.append('%i:%i' %((t-t%1), np.round(60*(t%1))))
+    return time_labels
+
+
+def lin_binning(dist, n_bins, min_pixel):
+    """
+    written by Till Vondenhoff, 20-06-27
+    
+    Sorts data by size using linear bins
+    
+    Parameters:
+        dist:      array, the data you want to bin
+        n_bins:    int, number of bins used for the histogram
+        min_pixel: minimum pixel size used for the slope calculation
+        
+    Returns:
+        f:         linear function 
+        slope:     slope of the fitted data
+        intercept: intercept of the fitted data
+        shade_min: lower boundary of excluded data. This also represents the highes value for the slope calculation
+        shade_max: upper boundary of excluded data
+    """
+    
+    # fist let's create a linear histogram
+    y, bin_boundaries = np.histogram(dist, bins=n_bins, density=True)
+    
+    # bin_boundaries represents the lower/upper boundarie für each bin. It's length is n_bins+1
+    # x_bins is created by calculating the mean of two adjacent bins. It's length is n_bins
+    x_bins = bin_boundaries[:-1] / 2. + bin_boundaries[1:] / 2.
+
+    # we only keep x and y values above the threhold min_pixel
+    x_bins_cut = x_bins[x_bins>np.sqrt(min_pixel)*25.]
+    y_cut      = y[x_bins>np.sqrt(min_pixel)*25.]
+    
+    x_nozeros = []
+    y_nozeros = []
+    
+    # set minimum and maximum shading to the last value of x_bin_lin
+    # the minimum shade will eventually be changed down the line
+    shade_min = x_bins[-1]
+    shade_max = x_bins[-1]
+    
+    # looking for empty bins and setting minimum shade accordingly
+    for i in range(y_cut.size):
+        if y_cut[i] != 0.:
+            y_nozeros.append(y_cut[i])
+            x_nozeros.append(x_bins_cut[i])
+        elif y_cut[i] == 0.:
+            shade_min = x_bins_cut[i]
+            break
+
+    slope, intercept = np.polyfit(np.log(x_nozeros), np.log(y_nozeros), 1)
+    f = np.exp(slope * np.log(x_bins_cut)) * np.exp(intercept)
+    
+    return f, slope, intercept, shade_min, shade_max
+
+
+def log_binning(dist, n_bins, bin_min, bin_max, min_pixel, N_min=0):
+    """
+    written by Till Vondenhoff, 20-06-27
+    
+    Sorts data by size using logarithmic bins
+    
+    Parameters:
+        dist:      array, the data you want to bin
+        n_bins:    int, number of bins used for the histogram
+      as the bin size increases with data size a minimum and maximum size for the bins must be specified:
+        bin_min:   int, minimum bin size
+        bin_max:   int, maximum bin size
+        min_pixel: int, minimum pixel size used for the slope calculation
+        
+    Returns:
+        f:          linear function 
+        slope:      slope of the fitted line
+        intercept:  intercept of the fitted line
+        shade1_min: lower boundary of the excluded data in the lower region (values that are too small)
+        shade1_max: upper boundary of the excluded data in the lower region (values that are too small)
+        shade2_min: lower boundary of the excluded data in the upper region (values that are too big)
+        shade2_max: upper boundary of the excluded data in the upper region (values that are too big)
+    """
+    
+    max_log = np.log10(bin_max / bin_min)
+    bin_boundaries = bin_min * np.logspace(0, max_log, num=n_bins + 1, base=10.0)
+
+    ind = np.digitize(dist, bin_boundaries)
+    CSD = np.zeros(n_bins)
+    
+    for b in range(n_bins):
+        if len(ind[ind == b + 1]) > N_min:
+            CSD[b] = float(np.count_nonzero(ind == b + 1)) / (bin_boundaries[b + 1] - bin_boundaries[b])
+        else:
+            CSD[b] = 'nan'
+
+    # bin_boundaries represents the lower/upper boundarie für each bin. It's length is n_bins+1
+    # x_bins is created by calculating the mean of two adjacent bins. It's length is n_bins
+    x_bins = bin_boundaries[:-1] / 2. + bin_boundaries[1:] / 2.
+    
+    pos_min = len(x_bins[x_bins<np.sqrt(min_pixel)*25.])
+    pos_max = -1
+    
+    # we only keep x and y values above the threhold min_pixel
+    CSD_cut = CSD[x_bins>np.sqrt(min_pixel)*25.]
+    x_bins_cut = x_bins[x_bins>np.sqrt(min_pixel)*25.]
+    
+    # looking for nan values and setting the shading accordingly
+    if np.isnan(np.sum(CSD_cut)):
+        nan_pos = [0]
+        for i in range(CSD_cut.size):
+            if np.isnan(CSD_cut[i]):
+                nan_pos.append(i)
+                
+        nan_pos.append(CSD_cut.size)
+        nan_pos = np.asarray(nan_pos)
+        
+        pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
+        pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+        
+        slope, intercept = np.polyfit(np.log(x_bins_cut[pos_min:pos_max]),np.log(CSD_cut[pos_min:pos_max]), 1)
+        f = 10 ** (slope * np.log10(x_bins_cut)) * np.exp(intercept)
+    else:
+        slope, intercept = np.polyfit(np.log(x_bins_cut),np.log(CSD_cut), 1)
+        f = 10 ** (slope * np.log10(x_bins_cut)) * np.exp(intercept)
+    
+    shade1_min = x_bins[0]
+    shade1_max = x_bins[pos_min]
+    
+    shade2_min = x_bins[pos_max]
+    shade2_max = x_bins[-1]
+    
+    return f, slope, intercept, shade1_min, shade1_max, shade2_min, shade2_max
+
+def cum_dist(dist, min_pixel):
+    """
+    written by Till Vondenhoff, 20-06-27
+    
+    Sorts data by size using a cumulative distribution function
+    
+    Parameters:
+        dist:      array, the data you want to bin
+        min_pixel: int, minimum pixel size used for the slope calculation
+        
+    Returns:
+        f:          linear function 
+        slope:      slope of the fitted line
+        intercept:  intercept of the fitted line
+        shade_min:  lower boundary of excluded data
+        shade_max:  upper boundary of excluded data. This also represents the smalest value for the slope calculation
+    """
+    min_area = np.sqrt(min_pixel)*25.
+    dist_cut = dist[dist>min_area]
+    
+    alpha = 1. + len(dist_cut) / (np.sum(np.log(dist_cut / min_area)))
+    
+    #print('1:',np.log(dist_cut / mmm))
+    
+    shade_min = np.min(dist)
+    shade_max = np.sqrt(min_pixel)*25.
+    
+    # calculate y-intercept of linear equation with alpha-1
+    def powerlaw_func(x, alpha, C):
+        return C * x ** -alpha
+
+    def cumulative_dist_func(x, alpha, C):
+        return C / (alpha - 1) * x ** -(alpha - 1)
+
+    dist_sort = np.sort(dist)
+    p = np.array(range(len(dist))) / float(len(dist))
+    # reverse p and dist_sort so they go from smallest to biggest and first index for which powerlaw holds
+    p_rev = p[::-1]
+    
+    first_idx = np.where(dist_sort > np.sqrt(min_pixel)*25.)[0][0]
+
+    sum_cum_dist = np.sum(p_rev[first_idx:].dot(dist_sort[first_idx:] - dist_sort[first_idx - 1:-1]))
+    
+    # integrate powerlaw of alpha-1 with sum over all values
+    integral_powerlaw = np.sum(powerlaw_func(dist_sort[first_idx:], alpha - 1, 1) * (dist_sort[first_idx:] - dist_sort[first_idx - 1:-1]))
+
+    slope = -alpha
+    intercept = (alpha - 1) * sum_cum_dist / integral_powerlaw
+    f = cumulative_dist_func(dist_sort, alpha, intercept)
+
+    return f, slope, intercept, shade_min, shade_max
 
 
 def log_binner_minmax(var, bin_min, bin_max, bin_n, N_min=0):
@@ -58,6 +261,7 @@ def alpha_newman5(dist, cloud_size_min):
     x = dist[dist > xmin]
     n = x.size
     alpha = 1. + n / (np.sum(np.log(x / xmin)))
+    #print('3:',np.log(x / xmin))
     return alpha
 
 
@@ -92,7 +296,6 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
 
     N_samples = len(dist)
     
-    print(min(dist))
     # linear power-law distribution of the data (a,b)
     y, bins_lin = np.histogram(dist, bins=bin_n, density=True)
     x_bins_lin = bins_lin[:-1] / 2. + bins_lin[1:] / 2.
@@ -116,8 +319,8 @@ def func_newmann3(dist, bin_n, bin_min, bin_max, x_min, x_max, min_pixel, show_p
     shade0_max = x_bins_lin[-1]
 
     # logarithmic binning of the data (c)
-    bins_log_mm, ind, CSD = log_binner_minmax(dist, bin_min, bin_max, bin_n)
-    #CSD, bins_log_mm = np.histogram(dist, bins=np.logspace(np.log10(x_min),np.log10(x_max), bin_n+1),range=(x_min, x_max))
+    #bins_log_mm, ind, CSD = log_binner_minmax(dist, bin_min, bin_max, bin_n)
+    CSD, bins_log_mm = np.histogram(dist, bins=np.logspace(np.log10(x_min),np.log10(x_max), bin_n+1),range=(x_min, x_max))
     x_bins_log_mm = bins_log_mm[:-1] / 2. + bins_log_mm[1:] / 2.
     
     pos_min = len(x_bins_log_mm[x_bins_log_mm<np.sqrt(min_pixel)*25.])
@@ -268,7 +471,9 @@ def cloud_size_dist(dist, time, bin_n, bin_min, bin_max, ref_min, file, min_pixe
     # calculates how many clouds exist in cloud_2D_mask, returns total number of clouds
     labeled_clouds, n_clouds = ndi.label(cloud_2D_mask)
     labels = np.arange(1, n_clouds + 1)
-    print('number of clouds:',n_clouds)
+    print('\n---------------------------------------------')
+    print('  number of clouds in this timestep:',n_clouds)
+    print('---------------------------------------------\n')
     
     # Calculating how many cells belong to each labeled cloud using ndi.labeled_comprehension
     # returns cloud_area and therefore its 2D size
