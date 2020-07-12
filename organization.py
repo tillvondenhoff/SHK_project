@@ -9,7 +9,7 @@ reload(cloud_and_plumes_slopes)
 import matplotlib.pyplot as plt
 
 
-def variability(center_x, center_y, size, time_vector, domain_size, subdomains, n_bins, min_size, max_size, log_binning, inbetween_subs, show_subs):
+def variability(center_x, center_y, size, time_vector, start_time, increment, domain_size, subdomains, n_bins, min_size, max_size, log_binning, inbetween_subs, show_subs):
     '''
     Written by Till Vondenhoff, 20-05-16
     
@@ -143,13 +143,12 @@ def variability(center_x, center_y, size, time_vector, domain_size, subdomains, 
         avg_slope.append(np.nanmean(slope))
         index += 1
     
-    #time_labels = [' ','7:00','7:30','8:00','8:30','9:00','9:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00']
-    #time_labels = ['6:00','6:30','7:00','7:30','8:00','8:30','9:00','9:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00']
     if (len(time_vector) > 1):
+        time_labels = get_time_labels(start_time+time_vector[0]/2, increment, len(time_vector))
         plt.figure(figsize=(10,8))
         for i in range(len(f[:,0,0])):
             color = plt.cm.cool((i+1)/(len(f[:,0,0])+1))
-            plt.plot(time_vector,f[i,0,:],'-', linewidth=2, label='l = %i m - %i m'%(int(l[i]),int(l[i+1])-1), color=color)
+            plt.plot(time_labels,f[i,0,:],'-', linewidth=2, label='l = %i m - %i m'%(int(l[i]),int(l[i+1])-1), color=color)
             
         #plt.plot(time_labels,avg_slope,'-', linewidth=1, label='avg. (all sizes)',color='red')
         plt.legend()

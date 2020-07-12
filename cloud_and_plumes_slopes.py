@@ -349,7 +349,7 @@ def plot_plumes_slope(area,time,bin_min,bin_max,bin_n,prop_plumes,series=True,ti
         plt.plot(time_nozeros_plumes[:-1],slope_plumes[:-1])
     
 
-def plot_cloud_alpha(data, time, bin_n, bin_min, bin_max, ref_min, min_pixel,n_cloud_min):
+def plot_cloud_alpha(data, time, n_bins, bin_min, bin_max, ref_min, min_pixel,n_cloud_min):
     """
     Written by Till Vondenhoff, 20-03-25
     
@@ -358,7 +358,7 @@ def plot_cloud_alpha(data, time, bin_n, bin_min, bin_max, ref_min, min_pixel,n_c
     Parameters:
         data:           unfiltered cloud data including multiple timesteps
         time:           array with all timesteps
-        bin_n:          number of bins
+        n_bins:         number of bins
         ref_min:        threhold for smallest value to be counted as cloud 
         bin_min:        value of the first bin
         bin_max:        value of the last bin
@@ -375,9 +375,10 @@ def plot_cloud_alpha(data, time, bin_n, bin_min, bin_max, ref_min, min_pixel,n_c
     """
     slope_lin = []
     slope_log = []
-    slope_com = []
-    valid_time = []
+    slope_cum = []
+    
     valid_n_clouds = []
+    valid_time     = []
 
     for timestep in time:
         timestep_data = data[timestep,:,:]
@@ -386,91 +387,46 @@ def plot_cloud_alpha(data, time, bin_n, bin_min, bin_max, ref_min, min_pixel,n_c
         cloud_2D_mask = np.zeros_like(timestep_data)
         cloud_2D_mask[timestep_data > ref_min] = 1
 
-
         # calculates how many clouds exist in cloud_2D_mask, returns total number of clouds
         labeled_clouds, n_clouds = ndi.label(cloud_2D_mask)
         labels = np.arange(1, n_clouds + 1)
         
-        if (n_clouds == 0 and len(valid_time) == 0):
-            continue
-        elif (n_clouds <= n_cloud_min):
+        if (n_clouds <= n_cloud_min):
             slope_lin.append(np.NaN)
             slope_log.append(np.NaN)
-            slope_com.append(np.NaN)
-            
+            slope_cum.append(np.NaN)
+
             valid_n_clouds.append(n_clouds)
             valid_time.append(timestep)
-            print ('n_clouds[',timestep,']:', n_clouds)
+            print ('timestap',timestep,'has too few clouds:', n_clouds)
             continue
-            
+        
         valid_n_clouds.append(n_clouds)
         valid_time.append(timestep)
-        #print('number of clouds', n_clouds)
-
         # Calculating how many cells belong to each labeled cloud using ndi.labeled_comprehension
-        # returns cloud_area and therefore its 2D size
+        # returns cloud_area and therefore it's 2D size
         cloud_number_cells = ndi.labeled_comprehension(cloud_2D_mask,labeled_clouds,labels, np.size, float, 0)
         
-        #cloud_number_cells = cloud_number_cells[cloud_number_cells>min_pixel]
         cloud_area = np.sqrt(cloud_number_cells)*25
         cloud_area_min = np.sqrt(min_pixel)*25.
         cloud_area_max = np.max(cloud_area)+1
-        #print('min cloud area:', np.min(cloud_area),'\nmax cloud area:', np.max(cloud_area))
 
         
     # linear power-law distribution of the data (a,b)
-        y, bins_lin = np.histogram(cloud_area, bins=bin_n, density=True, range=(cloud_area_min, cloud_area_max))
-        x_bins_lin = bins_lin[:-1] / 2. + bins_lin[1:] / 2.
-        x_nozeros = []
-        y_nozeros = []
-        for i in range(y.size):
-            if y[i] != 0.:
-                y_nozeros.append(y[i])
-                x_nozeros.append(x_bins_lin[i])
-            elif y[i] == 0.:
-                x_min_shade = x_bins_lin[i]
-                break
-        m1, b1 = np.polyfit(np.log(x_nozeros), np.log(y_nozeros), 1)
-        slope_lin.append(m1)
+        f, slope, intercept, shade_min, shade_max = lin_binning(cloud_area, n_bins, min_pixel)
+        slope_lin.append(slope)
 
     # logarithmic binning of the data (c)
-        bins_log_mm, ind, CSD = log_binner_minmax(cloud_area, bin_min, bin_max, bin_n)
-        #bin_min = max(cloud_area_min, bin_min)
-        #bin_max = min(cloud_area_max, bin_max)
-        #CSD, bins_log_mm = np.histogram(cloud_area, bins=np.logspace(np.log10(bin_min),np.log10(bin_max), bin_n+1),range=(cloud_area_min, cloud_area_max))
-        x_bins_log_mm = bins_log_mm[:-1] / 2. + bins_log_mm[1:] / 2.
-        
-        pos_min = 0
-        pos_max = -1
-
-        if np.isnan(np.sum(CSD)):
-            nan_pos = [0]
-            for i in range(CSD.size):
-                if np.isnan(CSD[i]):
-                    nan_pos.append(i)
-            nan_pos.append(CSD.size)
-            nan_pos = np.asarray(nan_pos)
-
-            pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
-            pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
-
-            print('nan_pos:',nan_pos)
-
-            m2, b2 = np.polyfit(np.log(x_bins_log_mm[pos_min:pos_max]),np.log(CSD[pos_min:pos_max]), 1)
-        else:
-            m2, b2 = np.polyfit(np.log(x_bins_log_mm),np.log(CSD), 1)
-
-        slope_log.append(m2)
+        f, slope, intercept, shade1_min, shade1_max, shade2_min, shade2_max = log_binning(cloud_area, n_bins, bin_min, bin_max, min_pixel)
+        slope_log.append(slope)
 
     # cumulative distribution by sorting the data (d)
-        alpha = alpha_newman5(cloud_area, np.sqrt(min_pixel)*25.)
-        #m3 = -alpha + 1
-        m3 = -alpha
-        slope_com.append(m3)
+        f, slope, intercept, shade_min, shade_max = cum_dist(cloud_area, min_pixel)
+        slope_cum.append(slope)
+        
+    return valid_time, valid_n_clouds, slope_lin, slope_log, slope_cum
     
-    return valid_time, valid_n_clouds, slope_lin, slope_log, slope_com
     
-
 def plot_plume_alpha(plumes_time_area, bin_n, bin_min, bin_max, min_pixel, n_plume_min):
     """
     Written by Till Vondenhoff, 20-03-27
