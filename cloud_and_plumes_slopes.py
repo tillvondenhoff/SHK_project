@@ -143,6 +143,28 @@ def cluster_2D(A,buffer_size):
     return labeled_clouds_clean, A_buf, n_buffer, cloud_center_x, cloud_center_y, cloud_pixels
 
 
+def plot_daily_slope(time, n_clouds, time_labels, slope_log, slope_cum, n_cloud_min):
+    fig        = plt.figure(figsize=(10,6))
+    axes_left  = fig.add_subplot(1, 1, 1)
+    axes_right = axes_left.twinx()
+    
+    axes_left.bar(time, n_clouds, color='lightgrey')
+    axes_left.axhline(y=n_cloud_min, color='grey', linestyle='--')
+    axes_left.text(0, n_cloud_min-50, "n_cloud_min")
+    axes_left.set_xlabel('Time')
+    axes_left.set_ylabel('Number of clouds')
+
+    axes_right.plot(time_labels, slope_log, linewidth=3, color='tab:pink', label='log slope')
+    axes_right.plot(time_labels, slope_cum, linewidth=3, color='tab:green', label='cum slope')
+    axes_right.set_ylabel('Slope')
+    axes_right.set_ylim(-3,-1)
+    axes_right.legend()
+    
+    fig.suptitle('cloud size distribution slope', fontsize=16)
+    fig.autofmt_xdate()
+    
+    return fig
+
 def plot_cloud_slope(data,time,timestep,bin_min,bin_max,n_bins):
     """
     Written by Lennéa Hayo, 19-11-28
@@ -349,7 +371,7 @@ def plot_plumes_slope(area,time,bin_min,bin_max,bin_n,prop_plumes,series=True,ti
         plt.plot(time_nozeros_plumes[:-1],slope_plumes[:-1])
     
 
-def plot_cloud_alpha(data, time, n_bins, bin_min, bin_max, ref_min, min_pixel,n_cloud_min):
+def plot_cloud_alpha(data, time, n_bins, size_min, size_max, ref_min, n_cloud_min):
     """
     Written by Till Vondenhoff, 20-03-25
     
@@ -360,9 +382,8 @@ def plot_cloud_alpha(data, time, n_bins, bin_min, bin_max, ref_min, min_pixel,n_
         time:           array with all timesteps
         n_bins:         number of bins
         ref_min:        threhold for smallest value to be counted as cloud 
-        bin_min:        value of the first bin
-        bin_max:        value of the last bin
-        min_pixel:      threshold for minimum cloud size in pixel
+        size_min:       value of the first bin
+        size_max:       value of the last bin
         n_cloud_min:    minimum number of clouds per timestep required to calculate slope
         
     Returns:
@@ -408,20 +429,17 @@ def plot_cloud_alpha(data, time, n_bins, bin_min, bin_max, ref_min, min_pixel,n_
         cloud_number_cells = ndi.labeled_comprehension(cloud_2D_mask,labeled_clouds,labels, np.size, float, 0)
         
         cloud_area = np.sqrt(cloud_number_cells)*25
-        cloud_area_min = np.sqrt(min_pixel)*25.
-        cloud_area_max = np.max(cloud_area)+1
-
         
     # linear power-law distribution of the data (a,b)
-        f, slope, intercept, shade_min, shade_max = lin_binning(cloud_area, n_bins, min_pixel)
+        f, slope, intercept = lin_binning(cloud_area, n_bins, size_min, size_max, show_plt=0)
         slope_lin.append(slope)
 
     # logarithmic binning of the data (c)
-        f, slope, intercept, shade1_min, shade1_max, shade2_min, shade2_max = log_binning(cloud_area, n_bins, bin_min, bin_max, min_pixel)
+        f, slope, intercept = log_binning(cloud_area, n_bins, size_min, size_max, show_plt=0)
         slope_log.append(slope)
 
     # cumulative distribution by sorting the data (d)
-        f, slope, intercept, shade_min, shade_max = cum_dist(cloud_area, min_pixel)
+        f, slope, intercept = cum_dist(cloud_area, size_min, size_max, show_plt=0)
         slope_cum.append(slope)
         
     return valid_time, valid_n_clouds, slope_lin, slope_log, slope_cum
