@@ -122,7 +122,7 @@ def lin_binning(dist, n_bins, size_min, size_max, show_plt):
         
         plt.loglog(x_bins, y, 'o')
         plt.plot(x_bins[pos_min:pos_max], f)
-        plt.xlabel('cloud size [m]')
+        plt.xlabel('size [m]')
         plt.ylabel('samples')
         plt.text(np.max(x_bins[pos_min:pos_max]), np.max(y[pos_min:pos_max]), r'$\alpha = %f$' % slope,
                         horizontalalignment='right', verticalalignment='top')
@@ -212,7 +212,7 @@ def log_binning(dist, n_bins, size_min, size_max, show_plt):
         
         plt.loglog(x_bins, CSD, 'o')
         plt.plot(x_bins[pos_min:pos_max], f)
-        plt.xlabel('cloud size [m]')
+        plt.xlabel('size [m]')
         plt.ylabel('samples')
         plt.text(shade2_min, CSD[pos_min], r'$\alpha = %f$' % slope,
                         horizontalalignment='right', verticalalignment='top')
@@ -290,7 +290,7 @@ def cum_dist(dist, size_min, size_max, show_plt):
         plt.axvline(x=size_max, color='red', linewidth=1.5, alpha=0.8, linestyle='--')
         plt.loglog(dist_sort, p_rev, 'o')
         plt.plot(dist_sort[pos_min:pos_max], f)
-        plt.xlabel('cloud size [m]')
+        plt.xlabel('size [m]')
         plt.ylabel('samples with value > x')
         plt.text(np.max(dist_sort), np.max(p), r'$\alpha = %f$' % (-alpha), horizontalalignment='right',
                         verticalalignment='top')

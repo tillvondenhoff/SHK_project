@@ -445,7 +445,7 @@ def plot_cloud_alpha(data, time, n_bins, size_min, size_max, ref_min, n_cloud_mi
     return valid_time, valid_n_clouds, slope_lin, slope_log, slope_cum
     
     
-def plot_plume_alpha(plumes_time_area, bin_n, bin_min, bin_max, min_pixel, n_plume_min):
+def plot_plume_alpha(plumes_time_area, n_bins, size_min, size_max, n_plume_min, show_plt):
     """
     Written by Till Vondenhoff, 20-03-27
     
@@ -469,7 +469,7 @@ def plot_plume_alpha(plumes_time_area, bin_n, bin_min, bin_max, min_pixel, n_plu
     """
     slope_lin = []
     slope_log = []
-    slope_com = []
+    slope_cum = []
     valid_time = []
     valid_n_plumes = []
     
@@ -496,54 +496,37 @@ def plot_plume_alpha(plumes_time_area, bin_n, bin_min, bin_max, min_pixel, n_plu
         valid_time.append(timestep)
         
         plume_area = plumes_time_area_timestep['sq Area'] #/(25**2)
-        plume_area_min = max(np.sqrt(min_pixel)*25.,np.min(plume_area))
-        plume_area_max = max(plume_area)+1
+        plume_area_min = np.min(plume_area)
+        plume_area_max = np.max(plume_area)+1
         
-    # linear power-law distribution of the data (a,b)
-        y, bins_lin = np.histogram(plume_area, bins=bin_n, density=True, range=(plume_area_min, plume_area_max))
-        x_bins_lin = bins_lin[:-1] / 2. + bins_lin[1:] / 2.
-        x_nozeros = []
-        y_nozeros = []
-        for i in range(y.size):
-            if y[i] != 0.:
-                y_nozeros.append(y[i])
-                x_nozeros.append(x_bins_lin[i])
-            elif y[i] == 0.:
-                x_min_shade = x_bins_lin[i]
-                break
-        m1, b1 = np.polyfit(np.log(x_nozeros), np.log(y_nozeros), 1)
-        slope_lin.append(m1)        
-        
-    # logarithmic binning of the data (c)
-        bins_log_mm, ind, CSD = log_binner_minmax(plume_area, bin_min, bin_max, bin_n)
-        x_bins_log_mm = bins_log_mm[:-1] / 2. + bins_log_mm[1:] / 2.
-        
-        pos_min = 0
-        pos_max = -1
+        if show_plt:
+            CSD, bins = np.histogram(plume_area, bins=n_bins)
 
-        if np.isnan(np.sum(CSD)):
-            nan_pos = [0]
-            for i in range(CSD.size):
-                if np.isnan(CSD[i]):
-                    nan_pos.append(i)
-            nan_pos.append(CSD.size)
-            nan_pos = np.asarray(nan_pos)
+            bin_width = (bins[-1]-bins[0])/len(bins)
+            bins = bins[1:]/2 + bins[:-1]/2
 
-            pos_min = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])]+1
-            pos_max = nan_pos[np.argmax(nan_pos[1:]-nan_pos[:-1])+1]-1
+            plt.axvline(x=size_min, color='red', linewidth=1.5, alpha=0.8, linestyle='--')
+            plt.axvline(x=size_max, color='red', linewidth=1.5, alpha=0.8, linestyle='--')
 
-            print('nan_pos:',nan_pos)
+            plt.plot(bins, CSD/bin_width)
+            plt.axvspan(0, size_min, color='gray', alpha=0.4, lw=0)
+            plt.axvspan(size_max, np.max(plume_area), color='gray', alpha=0.4, lw=0)
+            plt.xlabel('cloud size [m]')
+            plt.ylabel('probability density function')
+            plt.title('linear histogram')
+            plt.xlim(0, np.max(plume_area))
+            plt.show()
 
-            m2, b2 = np.polyfit(np.log(x_bins_log_mm[pos_min:pos_max]),np.log(CSD[pos_min:pos_max]), 1)
-        else:
-            m2, b2 = np.polyfit(np.log(x_bins_log_mm),np.log(CSD), 1)
-            
-        slope_log.append(m2)
+        # linear power-law distribution of the data
+        f, slope, intercept = lin_binning(plume_area, n_bins, size_min, size_max, show_plt)
+        slope_lin.append(slope)
 
-    # cumulative distribution by sorting the data (d)
-        alpha = alpha_newman5(plume_area, plume_area_min)
-        #m3 = -alpha + 1
-        m3 = -alpha
-        slope_com.append(m3)
-        
-    return valid_time, valid_n_plumes, slope_lin, slope_log, slope_com
+        # logarithmic binning of the data
+        f, slope, intercept = log_binning(plume_area, n_bins, size_min, size_max, show_plt)
+        slope_log.append(slope)
+
+        # cumulative distribution by sorting the data
+        f, slope, intercept = cum_dist(plume_area, size_min, size_max, show_plt)
+        slope_cum.append(slope)
+
+    return valid_time, valid_n_plumes, slope_lin, slope_log, slope_cum
